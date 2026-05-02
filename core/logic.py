@@ -2,6 +2,7 @@ import core.state as state
 from core.state import check_current_year, check_energy_level
 from utils.log import info, warning, error, debug
 import Levenshtein
+from utils import constants
 
 support_hint_info = {}
 
@@ -52,13 +53,11 @@ def check_all_elements_are_same(d):
 # Will do train with the most support card
 # Used in the first year (aim for rainbow)
 def most_support_card(results):
-  # Seperate wit
-  wit_data = results.get("wit")
 
-  # Get all training but wit
+  # Get all training 
   non_wit_results = {
     k: v for k, v in results.items()
-    if k != "wit" and int(v["failure"]) <= state.MAX_FAILURE
+    if int(v["failure"]) <= state.MAX_FAILURE
   }
 
   # Check if train is bad
@@ -67,10 +66,6 @@ def most_support_card(results):
   if energy_level < state.SKIP_TRAINING_ENERGY:
     info("All trainings are unsafe and WIT training won't help go back up to safe levels, resting instead.")
     return None
-
-  if all_others_bad and wit_data and int(wit_data["failure"]) <= state.MAX_FAILURE and wit_data["total_supports"] >= 2:
-    info("All trainings are unsafe, but WIT is safe and has enough support cards.")
-    return "wit"
 
   filtered_results = {
     k: v for k, v in results.items() if int(v["failure"]) <= state.MAX_FAILURE

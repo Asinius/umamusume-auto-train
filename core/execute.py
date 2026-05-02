@@ -651,6 +651,7 @@ def career_lobby():
     if click(boxes=matches["next2"]):
       continue
     if "cancel" in matches and matches["cancel"]:
+      info("Cancel button found.")
       clock_icon = match_template("assets/icons/clock_icon.png", threshold=0.8)
       if not clock_icon:
         click(boxes=matches["cancel"])
@@ -789,8 +790,9 @@ def career_lobby():
         do_recreation()
         continue
 
+    '''
     # Check if we need to race for goal
-    if not "Achieved" in criteria:
+    if not "Achieved" in criteria and "Junior" not in year:
       if state.APTITUDES == {}:
         sleep(0.1)
         if click(img="assets/buttons/full_stats.png", minSearch=get_secs(1)):
@@ -812,6 +814,7 @@ def career_lobby():
           # If there is no race matching to aptitude, go back and do training instead
           click(img="assets/buttons/back_btn.png", minSearch=get_secs(1), text="Proceeding to training.")
           sleep(0.)
+    '''
 
     if energy_level < state.SKIP_TRAINING_ENERGY:
       info(f"Energy level {energy_level} less than {state.SKIP_TRAINING_ENERGY}, resting.")
