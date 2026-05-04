@@ -182,7 +182,7 @@ def check_support_card(threshold=0.8, target="none", with_hint_cards = False):
 
 # Get failure chance (idk how to get energy value)
 def check_failure():
-  failure = enhanced_screenshot(constants.FAILURE_REGION)
+  failure = enhanced_screenshot(constants.FAILURE_REGION, scale = 4)
   failure_text = extract_text(failure).lower()
 
   if not failure_text.startswith("failure"):

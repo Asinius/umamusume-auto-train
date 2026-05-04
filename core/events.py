@@ -13,7 +13,8 @@ def event_choice(event_name):
 
   if not event_name:
     return choice
-
+  if "tutorial" in event_name.lower():
+    return 2
   best_event_name, similarity = find_best_match(event_name, state.EVENT_CHOICES)
   debug(f"Best event name match: {best_event_name}, similarity: {similarity}")
 

@@ -3,7 +3,7 @@ import mss
 import numpy as np
 import cv2
 
-def enhanced_screenshot(region=(0, 0, 1920, 1080)) -> Image.Image:
+def enhanced_screenshot(region=(0, 0, 1920, 1080), scale = 2) -> Image.Image:
   with mss.mss() as sct:
     monitor = {
       "left": region[0],
@@ -16,9 +16,10 @@ def enhanced_screenshot(region=(0, 0, 1920, 1080)) -> Image.Image:
     img_rgb = img_np[:, :, :3][:, :, ::-1]
     pil_img = Image.fromarray(img_rgb)
 
-  pil_img = pil_img.resize((pil_img.width * 2, pil_img.height * 2), Image.BICUBIC)
+  pil_img = pil_img.resize((pil_img.width * scale, pil_img.height * scale), Image.BICUBIC)
   pil_img = pil_img.convert("L")
   pil_img = ImageEnhance.Contrast(pil_img).enhance(1.5)
+  pil_img = ImageEnhance.Sharpness(pil_img).enhance(2.0)
 
   return pil_img
 
@@ -73,7 +74,7 @@ def enhance_image_for_ocr(image: Image.Image, scale: float = 3.0):
 
   return Image.fromarray(bolded)
 
-def enhance_image_for_ocr_2(pil_img: Image.Image, scale: float) -> np.ndarray:
+def enhance_image_for_ocr_2(pil_img: Image.Image, scale: float = 3.0) -> np.ndarray:
   """
   Enhance the input PIL image for OCR:
   - Isolate yellow color

@@ -89,7 +89,7 @@ export default function RaceDateCard({
                 year={year}
                 isSelected={selectedRace?.name === title}
                 onSelect={() =>
-                  addRaceSchedule({ name: title, year, date: race.date })
+                  addRaceSchedule({ name: title, year, date: race.date, grade: race.grade })
                 }
                 onDeselect={() => deleteRaceSchedule(title, year)}
               />

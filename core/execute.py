@@ -10,6 +10,7 @@ import core.state as state
 from core.state import stat_state, check_support_card, check_failure, check_turn, check_mood, check_current_year, check_criteria, check_skill_pts, check_energy_level, get_race_type, check_status_effects, check_aptitudes, SUPPORT_FRIEND_LEVELS
 from core.logic import do_something, decide_race_for_goal, remove_hint, reset_hints
 from core.ocr import extract_text
+from core.mant import use_g1_hammer, use_megaphone, use_charm, use_vitamin, go_shopping, use_cupcake, use_finale_hammer, use_ankle_weights, use_kale_juice, read_held_items, use_glow_sticks
 
 
 from utils.log import info, warning, error, debug
@@ -48,6 +49,7 @@ training_types = {
   "wit": "assets/icons/train_wit.png"
 }
 
+shop_next_turn = False
 
 def click(img: str = None, confidence: float = 0.8, minSearch:float = 2, click: int = 1, text: str = "", boxes = None, region=None):
   if state.stop_event.is_set():
@@ -271,18 +273,7 @@ def check_training_fans(year, current_stats):
   failcheck="check_all"
   margin=5
 
-  training_id_cap = 3
-  if "Junior Year" in year and current_stats.get("spd", 0) < 300:
-    info("SPD is below 300 in Junior Year, prioritizing SPD training.")
-    training_id_cap = 1
-  if "Classic Year" in year and current_stats.get("spd", 0) < 400:
-    info("SPD is below 400 in Classic Year, prioritizing SPD training.")
-    training_id_cap = 1
-  if "Senior Year" in year and current_stats.get("spd", 0) < 620:
-    info("SPD is below 620 in Senior Year, prioritizing SPD training.")
-    training_id_cap = 1
-
-  for key, icon_path in list(training_types.items())[:training_id_cap]:
+  for key, icon_path in list(training_types.items()):
     if state.stop_event.is_set():
       return {}
 
@@ -319,18 +310,7 @@ def check_training_fans(year, current_stats):
       debug(f"[{key.upper()}] → Total Supports {support_card_results['total_supports']}, Levels:{support_card_results['total_friendship_levels']} , Fail: {failure_chance}%")
       sleep(0.1)
 
-  for key, icon_path in list(training_types.items())[training_id_cap:]:
-    results[key] = populate_null_data()
-
-
-  #LMAO click guts to reset stamina button so you can actually click it
-  pos = pyautogui.locateCenterOnScreen(training_types["guts"], confidence=0.8, region=constants.SCREEN_BOTTOM_REGION)
-  if pos:
-    pyautogui.moveTo(pos, duration=0.1)
-    sleep(0.1)
-
   pyautogui.mouseUp()
-  #click(img="assets/buttons/back_btn.png")
   return results
 
 def do_train(train):
@@ -344,12 +324,17 @@ def do_train(train):
     sleep(0.2)
     do_train(train)
 
-def do_rest(energy_level):
+def do_rest(energy_level, is_summer = False):
   if state.stop_event.is_set():
     return
   if state.NEVER_REST_ENERGY > 0 and energy_level > state.NEVER_REST_ENERGY:
     info(f"Wanted to rest when energy was above {state.NEVER_REST_ENERGY}, retrying from beginning.")
     return 
+  # Attempt to use energy items
+  if is_summer:
+    info("Attempt to use energy items first")
+    if use_vitamin() or use_charm():
+      return
   rest_btn = pyautogui.locateOnScreen("assets/buttons/rest_btn.png", confidence=0.8, region=constants.SCREEN_BOTTOM_REGION)
   rest_summber_btn = pyautogui.locateOnScreen("assets/buttons/rest_summer_btn.png", confidence=0.8, region=constants.SCREEN_BOTTOM_REGION)
   if rest_btn:
@@ -369,26 +354,33 @@ def do_recreation():
     click(boxes=recreation_btn)
     sleep(1)
 
-    aoi_event = pyautogui.locateCenterOnScreen("assets/ui/aoi_event.png", confidence=0.8)
-    tazuna_event = pyautogui.locateCenterOnScreen("assets/ui/tazuna_event.png", confidence=0.8)
+    #aoi_event = pyautogui.locateCenterOnScreen("assets/ui/aoi_event.png", confidence=0.8)
+    #tazuna_event = pyautogui.locateCenterOnScreen("assets/ui/tazuna_event.png", confidence=0.8)
     date_complete = pyautogui.locateCenterOnScreen("assets/ui/date_complete.png", confidence=0.8)
+    sasami_event = pyautogui.locateCenterOnScreen("assets/ui/sasami_event.png", confidence=0.8)
 
     if date_complete:
       pyautogui.moveTo(410, 500, duration=0.15)
       pyautogui.click()
-    elif aoi_event:
-      pyautogui.moveTo(aoi_event, duration=0.15)
-      pyautogui.click(aoi_event)
-    elif tazuna_event:
-      pyautogui.moveTo(tazuna_event, duration=0.15)
-      pyautogui.click(tazuna_event)
+      '''
+      elif aoi_event:
+        pyautogui.moveTo(aoi_event, duration=0.15)
+        pyautogui.click(aoi_event)
+      elif tazuna_event:
+        pyautogui.moveTo(tazuna_event, duration=0.15)
+        pyautogui.click(tazuna_event)
+      '''
+    elif sasami_event:
+      pyautogui.moveTo(sasami_event, duration=0.15)
+      pyautogui.click(sasami_event)
   elif recreation_summer_btn:
     click(boxes=recreation_summer_btn)
 
 def do_race(prioritize_g1 = False, img = None):
   if state.stop_event.is_set():
     return False
-  click(img="assets/buttons/races_btn.png", minSearch=get_secs(10))
+  while not click(img="assets/buttons/races_btn.png", minSearch=get_secs(1)):
+    sleep(0.1)
 
   consecutive_cancel_btn = pyautogui.locateCenterOnScreen("assets/buttons/cancel_btn.png", minSearchTime=get_secs(0.7), confidence=0.8)
   if state.CANCEL_CONSECUTIVE_RACE and consecutive_cancel_btn:
@@ -397,7 +389,7 @@ def do_race(prioritize_g1 = False, img = None):
   elif not state.CANCEL_CONSECUTIVE_RACE and consecutive_cancel_btn:
     click(img="assets/buttons/ok_btn.png", minSearch=get_secs(0.7))
 
-  sleep(0.7)
+  sleep(0.5)
   found = race_select(prioritize_g1=prioritize_g1, img=img)
   if not found:
     if img is not None:
@@ -407,7 +399,7 @@ def do_race(prioritize_g1 = False, img = None):
     return False
 
   race_prep()
-  sleep(0.7)
+  sleep(0.5)
   after_race()
   return True
 
@@ -427,9 +419,8 @@ def select_event(event_choices_icon = None):
 
   chosen = event_choice(event_name)
   if chosen == 0:
-    click(boxes=event_choices_icon, text="Event found, selecting top choice.")
+    click(boxes=(event_choices_icon[0] + 80, event_choices_icon[1], event_choices_icon[2], event_choices_icon[3]), text="Event found, selecting top choice.")
     return True
-
   x = event_choices_icon[0] + event_choices_icon[2] // 2
   y = event_choices_icon[1] + event_choices_icon[3] //2 + ((chosen - 1) * choice_vertical_gap)
   debug(f"Event choices coordinates: {event_choices_icon}")
@@ -441,12 +432,16 @@ def select_event(event_choices_icon = None):
     click(boxes=(x, confirm_acupuncturist_y, 1, 1), text="Confirm acupuncturist.")
   return True
 
-def race_day(is_ura = False):
+def race_day(is_finals = False):
+  # This will only trigger on the finale 
   if state.stop_event.is_set():
     return
-  race_day_btn = f"assets/buttons/{"ura_race_btn" if is_ura else "race_day_btn"}.png"
+  if is_finals:
+    use_finale_hammer()
+    race_day_btn = f"assets/mant/ts_climax_btn.png"
+  else:
+    race_day_btn = f"assets/buttons/race_day_btn.png"
   click(img=race_day_btn, minSearch=get_secs(10), region=constants.SCREEN_BOTTOM_REGION)
-
   click(img="assets/buttons/ok_btn.png")
   sleep(0.2)
 
@@ -460,9 +455,9 @@ def race_day(is_ura = False):
       click(img="assets/buttons/bluestacks/race_btn.png", minSearch=get_secs(2))
     sleep(0.2)
 
-  race_prep()
-  sleep()
-  after_race()
+  race_prep(is_finals)
+  sleep(0.2)
+  after_race(is_finals)
 
 def race_select(prioritize_g1 = False, img = None):
   if state.stop_event.is_set():
@@ -514,7 +509,7 @@ def race_select(prioritize_g1 = False, img = None):
 
     return False
 
-def race_prep():
+def race_prep(mant_finals = False):
   global PREFERRED_POSITION_SET
 
   if state.stop_event.is_set():
@@ -553,55 +548,28 @@ def race_prep():
     if state.stop_event.is_set():
       return
     pyautogui.tripleClick(interval=0.2)
+  if not mant_finals:
+    for i in range(2):
+      if state.stop_event.is_set():
+        return
+      pyautogui.tripleClick(interval=0.2)
     sleep(0.2)
-  pyautogui.click()
-  next_button = pyautogui.locateCenterOnScreen("assets/buttons/next_btn.png", confidence=0.9, minSearchTime=get_secs(4), region=constants.SCREEN_BOTTOM_REGION)
-  if not next_button:
-    info(f"Wouldn't be able to move onto the after race since there's no next button.")
-    if click("assets/buttons/race_btn.png", confidence=0.8, minSearch=get_secs(1), region=constants.SCREEN_BOTTOM_REGION):
-      info(f"Went into the race, sleep for {get_secs(10)} seconds to allow loading.")
-      sleep(10)
-      if not click("assets/buttons/race_exclamation_btn.png", confidence=0.8, minSearch=get_secs(10)):
-        info("Couldn't find \"Race!\" button, looking for alternative version.")
-        if not click("assets/buttons/race_exclamation_btn_portrait.png", confidence=0.8, minSearch=get_secs(10)):
-          info("Still no Race button, returning")
-          return
-      sleep(0.5)
-      skip_btn = pyautogui.locateOnScreen("assets/buttons/skip_btn.png", confidence=0.8, minSearchTime=get_secs(2), region=constants.SCREEN_BOTTOM_REGION)
-      skip_btn_big = pyautogui.locateOnScreen("assets/buttons/skip_btn_big.png", confidence=0.8, minSearchTime=get_secs(2), region=constants.SKIP_BTN_BIG_REGION_LANDSCAPE)
-      if not skip_btn_big and not skip_btn:
-        warning("Coulnd't find skip buttons at first search.")
-        skip_btn = pyautogui.locateOnScreen("assets/buttons/skip_btn.png", confidence=0.8, minSearchTime=get_secs(10), region=constants.SCREEN_BOTTOM_REGION)
-        skip_btn_big = pyautogui.locateOnScreen("assets/buttons/skip_btn_big.png", confidence=0.8, minSearchTime=get_secs(10), region=constants.SKIP_BTN_BIG_REGION_LANDSCAPE)
-      if skip_btn:
-        click(boxes=skip_btn, click=3)
-      if skip_btn_big:
-        click(boxes=skip_btn_big, click=3)
-      sleep(3)
-      if skip_btn:
-        click(boxes=skip_btn, click=3)
-      if skip_btn_big:
-        click(boxes=skip_btn_big, click=3)
-      sleep(0.2)
-      if skip_btn:
-        click(boxes=skip_btn, click=3)
-      if skip_btn_big:
-        click(boxes=skip_btn_big, click=3)
-      sleep(3)
-      skip_btn = pyautogui.locateOnScreen("assets/buttons/skip_btn.png", confidence=0.8, minSearchTime=get_secs(5), region=constants.SCREEN_BOTTOM_REGION)
-      click(boxes=skip_btn, click=3)
-      #since we didn't get the trophy before, if we get it we close the trophy
-      close_btn = pyautogui.locateOnScreen("assets/buttons/close_btn.png", confidence=0.8, minSearchTime=get_secs(5))
-      click(boxes=close_btn, click=3)
-      info("Finished race skipping job.")
+    next_button = pyautogui.locateCenterOnScreen("assets/buttons/close_btn.png", confidence=0.9, minSearchTime=get_secs(1), region=constants.SCREEN_MIDDLE_REGION)
+    pyautogui.moveTo(next_button, duration=0.15)
+    pyautogui.tripleClick(interval=0.2)
 
-def after_race():
+def after_race(mant_finals = False):
+  global shop_next_turn
   if state.stop_event.is_set():
     return
+  sleep(0.1)
   click(img="assets/buttons/next_btn.png", minSearch=get_secs(1))
-  sleep(0.2)
-  pyautogui.click()
+  sleep(0.1)
+  pyautogui.tripleClick(interval=0.2)
+  sleep(0.1)
   click(img="assets/buttons/next2_btn.png", minSearch=get_secs(1))
+  sleep(0.2)
+  shop_next_turn = not mant_finals
 
 def auto_buy_skill():
   info(f"Attempting to buy skill.")
@@ -632,8 +600,10 @@ import time
 
 PREFERRED_POSITION_SET = False
 def career_lobby():
+  global shop_next_turn
   # Program start
   reset_hints()
+  read_held_items()
   info(f"Mode is {state.FARM_MODE}")
   global PREFERRED_POSITION_SET
   PREFERRED_POSITION_SET = False
@@ -650,14 +620,8 @@ def career_lobby():
       continue
     if click(boxes=matches["next2"]):
       continue
-    if "cancel" in matches and matches["cancel"]:
-      info("Cancel button found.")
-      clock_icon = match_template("assets/icons/clock_icon.png", threshold=0.8)
-      if not clock_icon:
-        click(boxes=matches["cancel"])
-        continue
-      else:
-        info("Lost race")
+    if click(boxes=matches["cancel"]):
+      continue
     if "hint" in matches and matches["hint"]:
       screenshot = enhanced_existing_screenshot(screen_arr, constants.HINT_TEXT_REGION)
       text = extract_text(screenshot)
@@ -687,9 +651,12 @@ def career_lobby():
         sleep(0.6)
         after_race()
       continue
+    '''
     if "insufficient_fans" in matches and matches["insufficient_fans"]:
       click(boxes=match_template(templates["cancel"]))
       continue
+    Need to code this but for insufficient points
+    '''
 
 
     if "tazuna" not in matches or not matches["tazuna"]:
@@ -716,30 +683,35 @@ def career_lobby():
     info(f"Skill points: {check_skill_pts()}")
     print("\n=======================================================================================\n")
 
-    # If calendar is race day, do race
+    is_summer_camp = "Junior" not in year and ("Jul" in year or "Aug" in year)
+    if shop_next_turn:
+      if go_shopping():
+        shop_next_turn = False
     if turn == "Race Day":
       if state.IS_AUTO_BUY_SKILL and "Junior" not in year:
         auto_buy_skill()
-
-      if "Finale" in year:
-        info("URA!")
-        race_day(is_ura=True)
+      if "Climax" in year:
+        info("Finale!")
+        race_day(is_finals=True)
       else:
-        info("Race Day!")
-        race_day(is_ura=False)
+        race_day(is_finals=False)
 
-      continue
-
-    # If Prioritize G1 Race is true, check G1 race every turn
-    if state.PRIORITIZE_G1_RACE and "Pre-Debut" not in year and len(year_parts) > 3: #and year_parts[3] not in ["Jul", "Aug"]:
+    info("Summer camp: " + str(is_summer_camp))
+    # If Prioritize G1 Race is true, check race every turn
+    if state.PRIORITIZE_G1_RACE and "Pre-Debut" not in year and len(year_parts) > 3:
       race_done = False
       for race_list in state.RACE_SCHEDULE:
         if state.stop_event.is_set():
           break
         if len(race_list):
-          if race_list['year'] in year and race_list['date'] in year:
+          if race_list['year'] in year and race_list['date'].split(" ")[0] in year and race_list['date'].split(" ")[1] in year:
             debug(f"Race now, {race_list['name']}, {race_list['year']} {race_list['date']}")
-            if state.IS_AUTO_BUY_SKILL and year_parts[0] != "Junior":
+            if race_list['grade'] == "G1":
+              info("trying to hammer")
+              use_g1_hammer()
+            if race_list['name'] == "Japan Cup" or race_list['name'] == "Arima Kinen":
+              use_glow_sticks()
+            if state.IS_AUTO_BUY_SKILL:
               auto_buy_skill()
             if do_race(state.PRIORITIZE_G1_RACE, img=race_list['name']):
               race_done = True
@@ -750,6 +722,8 @@ def career_lobby():
       if race_done:
         continue
         
+    # Why ever infirmary in MANT
+    '''    
     skipped_infirmary=False
     if matches["infirmary"] and is_btn_active(matches["infirmary"][0]):
       sleep(0.2)
@@ -766,13 +740,14 @@ def career_lobby():
           skipped_infirmary=True
       else:
         continue
-  
+    '''
     # Mood check
     if year_parts[0] == "Junior":
       mood_check = minimum_mood_junior_year
     else:
       mood_check = minimum_mood
     if mood_index < mood_check:
+      '''
       if skipped_infirmary:
         info("Since we skipped infirmary due to energy, check full stats for statuses.")
         if click(img="assets/buttons/full_stats.png", minSearch=get_secs(1)):
@@ -785,38 +760,24 @@ def career_lobby():
             continue
         else:
           warning("Coulnd't find full stats button.")
-      else:
-        info("Mood is low, trying recreation to increase mood")
+      '''
+      info("Mood is low, trying recreation to increase mood")
+      if not use_cupcake():
+        info("No cupcake available, trying recreation.")
         do_recreation()
-        continue
-
-    '''
-    # Check if we need to race for goal
-    if not "Achieved" in criteria and "Junior" not in year:
-      if state.APTITUDES == {}:
-        sleep(0.1)
-        if click(img="assets/buttons/full_stats.png", minSearch=get_secs(1)):
-          sleep(0.2)
-          check_aptitudes()
-          click(img="assets/buttons/close_btn.png", minSearch=get_secs(1))
-      keywords = ("fan", "Maiden", "Progress")
-
-      prioritize_g1, race_name = decide_race_for_goal(year, turn, criteria, keywords)
-      info(f"prioritize_g1: {prioritize_g1}, race_name: {race_name}")
-      if race_name:
-        if race_name == "any":
-          race_found = do_race(prioritize_g1, img=None)
-        else:
-          race_found = do_race(prioritize_g1, img=race_name)
-        if race_found:
-          continue
-        else:
-          # If there is no race matching to aptitude, go back and do training instead
-          click(img="assets/buttons/back_btn.png", minSearch=get_secs(1), text="Proceeding to training.")
-          sleep(0.)
-    '''
-
-    if energy_level < state.SKIP_TRAINING_ENERGY:
+      continue
+    if is_summer_camp and "Early" in year:
+      info("trying to use megaphone")
+      use_megaphone() 
+    if "Climax" in year and (turn == 1 or turn == "1"):
+      info("Finale!, use megaphones")
+      use_megaphone()
+    if (is_summer_camp or "Climax" in year) and energy_level < 5 and use_kale_juice():
+      info("Used kale juice for extra energy for summer camp.")
+    if (is_summer_camp or "Climax" in year) and energy_level < state.SKIP_TRAINING_ENERGY and (use_charm() or use_vitamin()):
+      debug("Used charm or vitamin for extra energy for summer camp.")
+    # Code energy item usage
+    elif energy_level < state.SKIP_TRAINING_ENERGY:
       info(f"Energy level {energy_level} less than {state.SKIP_TRAINING_ENERGY}, resting.")
       do_rest(energy_level)
       sleep(0.2)
@@ -830,23 +791,23 @@ def career_lobby():
     # Last, do training
     sleep(0.2)
     current_stats = stat_state()
-    if state.FARM_MODE == "hints":
-      results_training = check_training_hints(year, current_stats)
-    else:
-      results_training = check_training_fans(year, current_stats)
-
+    results_training = check_training_fans(year, current_stats)
 
     best_training = do_something(results_training, current_stats)
     if best_training:
+      if is_summer_camp or "Climax" in year:
+        if results_training[best_training]["total_supports"] > 2 and best_training != "wit":
+          use_ankle_weights(best_training)
       do_train(best_training)
     else:
       click(img="assets/buttons/back_btn.png")
       sleep(0.2)
-      info(f"Check recreation with Tazuna or Aoi support card")
+      info(f"Check recreation with pal support card")
+      # Code this for other support cards
       date_event = pyautogui.locateCenterOnScreen("assets/ui/recreation_with.png", confidence=0.8)
       if date_event:
         do_recreation()
       else:
-        do_rest(energy_level)
+        do_rest(energy_level, is_summer_camp)
     sleep(0.2)
 

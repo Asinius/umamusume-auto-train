@@ -21,6 +21,7 @@ export const RaceScheduleSchema = z.object({
   name: z.string(),
   year: z.string(),
   date: z.string(),
+  grade: z.string(),
 });
 
 export const ConfigSchema = z.object({
