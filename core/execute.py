@@ -10,7 +10,7 @@ import core.state as state
 from core.state import stat_state, check_support_card, check_failure, check_turn, check_mood, check_current_year, check_criteria, check_skill_pts, check_energy_level, get_race_type, check_status_effects, check_aptitudes, SUPPORT_FRIEND_LEVELS
 from core.logic import do_something, decide_race_for_goal, remove_hint, reset_hints
 from core.ocr import extract_text
-from core.mant import use_g1_hammer, use_megaphone, use_charm, use_vitamin, go_shopping, use_cupcake, use_finale_hammer, use_ankle_weights, use_kale_juice, read_held_items, use_glow_sticks
+from core.mant import use_g1_hammer, use_megaphone, use_charm, use_vitamin, go_shopping, use_cupcake, use_finale_hammer, use_ankle_weights, use_kale_juice, read_held_items, use_glow_sticks, get_energy_items_total
 
 
 from utils.log import info, warning, error, debug
@@ -28,6 +28,7 @@ from core.events import event_choice, get_event_name
 templates = {
   "event": "assets/icons/event_choice_1.png",
   "inspiration": "assets/buttons/inspiration_btn.png",
+  "mant_pts": "assets/mant/need_pts.png",
   "next": "assets/buttons/next_btn.png",
   "next2": "assets/buttons/next2_btn.png",
   "retry": "assets/buttons/retry_btn.png",
@@ -324,7 +325,7 @@ def do_train(train):
     sleep(0.2)
     do_train(train)
 
-def do_rest(energy_level, is_summer = False):
+def do_rest(energy_level, is_summer = False, check_energy_items = False):
   if state.stop_event.is_set():
     return
   if state.NEVER_REST_ENERGY > 0 and energy_level > state.NEVER_REST_ENERGY:
@@ -333,7 +334,10 @@ def do_rest(energy_level, is_summer = False):
   # Attempt to use energy items
   if is_summer:
     info("Attempt to use energy items first")
-    if use_vitamin() or use_charm():
+    if use_vitamin() or use_charm() or use_kale_juice():
+      return
+  if check_energy_items:
+    if use_vitamin():
       return
   rest_btn = pyautogui.locateOnScreen("assets/buttons/rest_btn.png", confidence=0.8, region=constants.SCREEN_BOTTOM_REGION)
   rest_summber_btn = pyautogui.locateOnScreen("assets/buttons/rest_summer_btn.png", confidence=0.8, region=constants.SCREEN_BOTTOM_REGION)
@@ -428,7 +432,7 @@ def select_event(event_choices_icon = None):
   click(boxes=(x, y, 1, 1), text=f"Selecting optimal choice: {event_name}")
   sleep(0.5)
   if "Acupuncturist" in event_name:
-    confirm_acupuncturist_y = event_choices_icon[1] + ((4 - 1) * choice_vertical_gap)
+    confirm_acupuncturist_y = event_choices_icon[1]
     click(boxes=(x, confirm_acupuncturist_y, 1, 1), text="Confirm acupuncturist.")
   return True
 
@@ -616,11 +620,17 @@ def career_lobby():
       continue
     if click(boxes=matches["inspiration"], text="Inspiration found."):
       continue
+    if "mant_pts" in matches and matches["mant_pts"]:
+      cancel_loc = pyautogui.locateCenterOnScreen("assets/buttons/cancel_btn.png", confidence=0.9, minSearchTime=get_secs(1), region = constants.SCREEN_MIDDLE_REGION)
+      pyautogui.moveTo(cancel_loc, duration=0.1)
+      pyautogui.click()
+      sleep(0.1)
+      continue
     if click(boxes=matches["next"]):
       continue
     if click(boxes=matches["next2"]):
       continue
-    if click(boxes=matches["cancel"]):
+    if "cancel" in matches and click(boxes=matches["cancel"]):
       continue
     if "hint" in matches and matches["hint"]:
       screenshot = enhanced_existing_screenshot(screen_arr, constants.HINT_TEXT_REGION)
@@ -723,7 +733,6 @@ def career_lobby():
         continue
         
     # Why ever infirmary in MANT
-    '''    
     skipped_infirmary=False
     if matches["infirmary"] and is_btn_active(matches["infirmary"][0]):
       sleep(0.2)
@@ -740,14 +749,13 @@ def career_lobby():
           skipped_infirmary=True
       else:
         continue
-    '''
+
     # Mood check
     if year_parts[0] == "Junior":
       mood_check = minimum_mood_junior_year
     else:
       mood_check = minimum_mood
     if mood_index < mood_check:
-      '''
       if skipped_infirmary:
         info("Since we skipped infirmary due to energy, check full stats for statuses.")
         if click(img="assets/buttons/full_stats.png", minSearch=get_secs(1)):
@@ -760,7 +768,6 @@ def career_lobby():
             continue
         else:
           warning("Coulnd't find full stats button.")
-      '''
       info("Mood is low, trying recreation to increase mood")
       if not use_cupcake():
         info("No cupcake available, trying recreation.")
@@ -772,10 +779,12 @@ def career_lobby():
     if "Climax" in year and (turn == 1 or turn == "1"):
       info("Finale!, use megaphones")
       use_megaphone()
-    if (is_summer_camp or "Climax" in year) and energy_level < 5 and use_kale_juice():
+    if (is_summer_camp or "Climax" in year) and energy_level < 10 and use_kale_juice():
       info("Used kale juice for extra energy for summer camp.")
-    if (is_summer_camp or "Climax" in year) and energy_level < state.SKIP_TRAINING_ENERGY and (use_charm() or use_vitamin()):
+    elif (is_summer_camp or "Climax" in year or get_energy_items_total()) and energy_level < state.SKIP_TRAINING_ENERGY and (use_charm() or use_vitamin()):
       debug("Used charm or vitamin for extra energy for summer camp.")
+    elif energy_level < state.SKIP_TRAINING_ENERGY and get_energy_items_total() > 100 and use_vitamin():
+      debug("Used vitamin for extra energy on high energy item count")
     # Code energy item usage
     elif energy_level < state.SKIP_TRAINING_ENERGY:
       info(f"Energy level {energy_level} less than {state.SKIP_TRAINING_ENERGY}, resting.")
@@ -808,6 +817,6 @@ def career_lobby():
       if date_event:
         do_recreation()
       else:
-        do_rest(energy_level, is_summer_camp)
+        do_rest(energy_level, is_summer_camp or "Climax" in year, get_energy_items_total() > 100)
     sleep(0.2)
 

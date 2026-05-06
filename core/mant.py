@@ -428,3 +428,6 @@ def use_glow_sticks():
   if held_items.get("glow sticks", 0) > 0:
     return _use_item("glow sticks")
   return False
+
+def get_energy_items_total():
+  return held_items.get("vita 20", 0) * 20 + held_items.get("vita 40", 0) * 40 + held_items.get("vita 65", 0) * 65 + min(held_items.get("royal kale juice", 0), held_items.get("plain cupcake", 0) + held_items.get("berry sweet cupcake", 0)) * 100 
