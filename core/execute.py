@@ -720,6 +720,7 @@ def career_lobby():
               info("trying to hammer")
               use_g1_hammer()
             if race_list['name'] == "Japan Cup" or race_list['name'] == "Arima Kinen":
+              info("glow sticks")
               use_glow_sticks()
             if state.IS_AUTO_BUY_SKILL:
               auto_buy_skill()

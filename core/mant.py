@@ -140,6 +140,28 @@ def _click_box(box):
   return False
 
 def read_held_items():
+  global held_items
+  held_items = {
+    "vita 20": 0,
+    "vita 40": 0,
+    "vita 65": 0,
+    "empowering megaphone": 0,
+    "royal kale juice": 0,
+    "stamina ankle weights": 0,
+    "power ankle weights": 0,
+    "guts ankle weights": 0,
+    "speed ankle weights": 0,
+    "berry sweet cupcake": 0,
+    "plain cupcake": 0,
+    "reset whistle": 0,
+    "grilled carrots": 0,
+    "good-luck charm": 0,
+    "rich hand cream": 0,
+    "miracle cure": 0,
+    "artisan cleat hammer": 0,
+    "master cleat hammer": 0,
+    "glow sticks": 0,
+  }
   if not _open_items_menu():
     return False
   for i in range(3):
@@ -151,6 +173,7 @@ def read_held_items():
       region = (x - 405, y - 31, 225, 35)
       screenshot = enhanced_screenshot(region)
       text = extract_text(screenshot).lower()
+      info(f"Found held item: {text}")
       if text == "sweet cupcake berry":
         text = "berry sweet cupcake"
       amt_region =  (x - 305, y + 2, 20, 38)
